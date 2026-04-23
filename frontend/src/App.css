@@ -1,0 +1,29 @@
+/* Ecommerce Data Extractor - global app styles (dark only). */
+.App {
+    min-height: 100vh;
+    background-color: #0a0a0a;
+    color: #f5f5f5;
+}
+
+/* Custom selection color matches emerald accent */
+::selection {
+    background: rgba(16, 185, 129, 0.25);
+    color: #ecfdf5;
+}
+
+/* Dark scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+    background: #262626;
+    border-radius: 6px;
+    border: 2px solid #0a0a0a;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+}
