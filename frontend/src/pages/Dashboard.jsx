@@ -33,7 +33,9 @@ import {
   Trash2,
   Eye,
   Inbox,
+  Download,
 } from "lucide-react";
+import { downloadCsv } from "@/components/ProductTable";
 
 function truncate(s, n = 64) {
   if (!s) return "";
@@ -259,6 +261,25 @@ export default function Dashboard() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex justify-end gap-1">
+                          {j.status === "completed" && j.products_count > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  await downloadCsv(j.id);
+                                  toast.success("CSV downloaded");
+                                } catch (e) {
+                                  toast.error(`Download failed: ${e.message}`);
+                                }
+                              }}
+                              className="h-8 px-2 text-neutral-400 hover:bg-neutral-800/60 hover:text-emerald-300"
+                              data-testid={`download-job-${j.id}`}
+                              title="Download Swagify CSV"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

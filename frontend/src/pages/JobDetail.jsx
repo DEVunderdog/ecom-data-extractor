@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api, API, getToken } from "@/lib/api";
 import AppHeader from "@/components/AppHeader";
 import StatusBadge from "@/components/StatusBadge";
+import ProductTable from "@/components/ProductTable";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -328,9 +329,12 @@ export default function JobDetail() {
           className="mb-6 text-xs text-neutral-500"
           data-testid="phase3-note"
         >
-          {job.products_count} products captured so far — full product table
-          coming in Phase 3.
+          {job.products_count} products captured · Swagify CSV export ready below.
         </p>
+
+        <div className="mb-8">
+          <ProductTable job={job} />
+        </div>
 
         {/* Logs panel */}
         <div

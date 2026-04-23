@@ -27,6 +27,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from starlette.middleware.cors import CORSMiddleware
 
+from csv_mapper import SWAGIFY_HEADERS, to_swagify_row
 from worker import WorkerPool
 
 # ---------------------------------------------------------------------------
@@ -398,8 +399,49 @@ async def stream_logs(
     )
 
 
-# ---------------------------------------------------------------------------
-# Middleware + include
+@api_router.get("/jobs/{job_id}/export.csv")
+async def export_csv(job_id: str, user: dict = Depends(get_current_user)):
+    await _require_own_job(job_id, user)
+    return StreamingResponse(
+        _stream_export(job_id, delimiter=","),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="job_{job_id}_{int(datetime.now(timezone.utc).timestamp())}.csv"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@api_router.get("/jobs/{job_id}/export.txt")
+async def export_txt(job_id: str, user: dict = Depends(get_current_user)):
+    await _require_own_job(job_id, user)
+    return StreamingResponse(
+        _stream_export(job_id, delimiter="\t"),
+        media_type="text/tab-separated-values",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def _stream_export(job_id: str, delimiter: str) -> AsyncGenerator[bytes, None]:
+    """Yield Swagify-formatted rows for a job, streamed."""
+    import csv as _csv
+    import io as _io
+
+    def _serialize(row_values: list[str]) -> bytes:
+        buf = _io.StringIO()
+        w = _csv.writer(buf, delimiter=delimiter, quoting=_csv.QUOTE_MINIMAL, lineterminator="\n")
+        w.writerow(row_values)
+        return buf.getvalue().encode("utf-8")
+
+    # Header
+    yield _serialize(SWAGIFY_HEADERS)
+
+    cursor = db.products.find({"job_id": job_id}, {"_id": 0}).sort("scraped_at", 1)
+    async for doc in cursor:
+        mapped = to_swagify_row(doc.get("data") or {})
+        yield _serialize([mapped.get(col, "") for col in SWAGIFY_HEADERS])
+
+
 # ---------------------------------------------------------------------------
 app.include_router(api_router)
 app.add_middleware(
