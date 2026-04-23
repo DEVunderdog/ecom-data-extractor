@@ -84,19 +84,43 @@ fixed 200+ column Swagify schema, with live extraction logs streamed over SSE.
 - Invalid host → `failed` status with error message.
 - Testing agent: 11/11 Phase-2 tests pass, 14/14 Phase-1 regression intact.
 
-### Phase 3 — CSV (PENDING)
+### Phase 3 — Swagify CSV + product table + clipboard (DONE, Feb 2026)
+**Backend**
+- `scripts/extract_swagify_headers.py` — one-off: read row 1 of user-supplied `/app/backend/data/swagify_reference.xlsx` via openpyxl → `/app/backend/data/swagify_headers.json` (**217 columns**, order preserved). First col `Swagify SKU`, last `Additional Infos`.
+- `csv_mapper.py` — `SWAGIFY_HEADERS` + `to_swagify_row(product)` maps scraped fields onto the canonical schema:
+  - name→`Product Name`, description→`Long Description`, brand→`Brand`+`Primary Supplier`
+  - category split by `" > "` → `Category-1`/`Sub-Category-1-1`/`Sub-Category-1-1-1`
+  - sku→`Swagify SKU`+`Supplier SKU`+`Variant SKU`+`Parent SKU`
+  - price→`Price1` (stringified, no symbol), currency/rating/review_count/product_url/scraped_at → JSON in `Additional Infos`
+  - image→`Main Image`+`Gallery Images`+`Lifestyle Image`
+  - availability parsed to `Inventory Quantity` (1 / 0 / "")
+  - `Active="1"`, `Product Type="Product"`, `Variant Type="Product"`, `Minimum Order Qty="1"`, `QtyBreak1="1"` when name present
+  - unmapped columns emitted as `""` (filtered defensively via `SWAGIFY_HEADERS_SET`)
+- New endpoints (auth + user-scoped):
+  - `GET /api/jobs/{id}/export.csv` — streamed, `text/csv`, `Content-Disposition: attachment; filename=job_<id>_<ts>.csv`, exact 217-col header in canonical order.
+  - `GET /api/jobs/{id}/export.txt` — same content as TSV.
+- Works for partially-scraped jobs (streams whatever's in `products`).
+
+**Frontend**
+- `components/ProductTable.jsx` — sticky-header scrollable table (max-h 60vh). Columns: Img (40×40 rounded thumbnail), Name (→ product_url, new tab), Price, Currency, Rating, Reviews, Brand. Offset-paginated (50/page) with "Load more (N remaining)" button. Auto-refresh prepends new products every 4s while job is queued/running. Exports `downloadCsv(jobId)` helper for reuse.
+- Toolbar: **Download CSV** (emerald) + **Copy** split button (shadcn DropdownMenu) → "Copy as CSV" / "Copy as Plain Text (TSV)" both write to clipboard via `navigator.clipboard.writeText` with row-count toast.
+- Dashboard: completed job rows with products get a Download icon-button in Actions column.
+
+**End-to-end verification**
+- books.toscrape.com completed job: exported CSV = 217 columns matching `swagify_headers.json` exactly, 1000 data rows, 0 missing Product Name / Price1 / Main Image.
+- Testing agent: **7/7 backend pytest pass, 13/14 frontend items verified (load-more re-verified manually — works)**, Phase 1 (14) + Phase 2 (11) regressions green.
 - 200+ column Swagify schema (exact order). Unmapped → empty string.
 - CSV download endpoint + copy-to-clipboard (CSV / plain text) on job detail.
 
 ---
 
 ## Backlog (prioritised)
-- **P0** Phase 3 Swagify CSV export + job detail product table + copy-to-clipboard.
 - **P1** Cancel / retry job buttons in dashboard row actions.
-- **P1** Multi-user support (sign-up flow + per-user admin page).
+- **P1** Multi-user sign-up + per-user admin.
 - **P2** Scheduled / recurring scrapes.
-- **P2** Diff detection between scrape runs.
+- **P2** Diff detection between scrape runs (new / removed / price-changed).
 - **P2** Per-job rate-limit / domain throttle.
+- **P2** Optional: default `Inventory Quantity` to `1` when availability unknown.
 
 ## Next Tasks
-1. Await Phase 3 brief with full 200+ column Swagify header list.
+1. Await Phase 4 brief.
